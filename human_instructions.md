@@ -2,7 +2,7 @@
 
 > Living document. The AI updates this file as the project advances; humans complete the checkboxes. Items are ordered — do them top to bottom.
 >
-> **Last updated:** June 2026 — Phase 2 implemented; solo home build (Bayit dogfood later).
+> **Last updated:** June 2026 — Phase 3 implemented; solo home build (Bayit dogfood later).
 >
 > **⚠️ For AI — secrets:** Do **not** commit credentials from this file or chat. Real values live only in local `.env` (gitignored) and Render env vars. **Supabase database password was reset** after an earlier exposure — never reference or restore the old password; if `DATABASE_URL` breaks, ask the human for the current password or have them reset again in Supabase.
 >
@@ -17,9 +17,9 @@
 | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Phase 0 — KitchenOwl spike + scaffold | ✅ **Done.** Verdict: greenfield (SDD §11). Monorepo scaffolded; Postgres schema migrated locally; API health-checked; PWA builds with service worker |
 | Phase 1 — Auth, house, list           | ✅ **Done.** Magic-link auth, profile, invites, run draft→open, list CRUD + dedupe                                                                    |
-| Phase 2 — Shop mode + offline         | ✅ **Done.** Lock/done-shopping, shop view, Dexie outbox, Web Push substitutes/issues                                                                  |
-| Phase 3 — Receipts + reconciliation   | Not started (Gemini key done — item 4)                                                                                                               |
-| Phase 4 — Settlement + payments       | Not started                                                                                                                                          |
+| Phase 2 — Shop mode + offline         | ✅ **Done.** Lock/done-shopping, shop view, Dexie outbox, Web Push substitutes/issues                                                                 |
+| Phase 3 — Receipts + reconciliation   | ✅ **Done.** Supabase storage upload, Gemini parse + auto-match, reconciliation chat + table fallback, finalize + settlement engine + unit tests      |
+| Phase 4 — Settlement + payments       | Not started (balances UI, Venmo/Zelle, proof-of-payment — Phase 3 creates `settlements` + `balances` rows)                                           |
 | Phase 5 — Meals                       | Not started (P1; Slack **skipped** — see item 6)                                                                                                     |
 
 
@@ -51,6 +51,7 @@ The `.gitignore` already excludes `node_modules/`, `.env`, and the KitchenOwl sp
 - [x] **Database password reset** after accidental exposure — update `DATABASE_URL` on Render and in local `.env` with the new password. Do not store the password in this file or git.
 - [x] Create a **storage bucket** named `receipts` (private) — used from Phase 3 onward.
 - [x] Save the project's **service-role key** somewhere safe (Supabase → Project Settings → API) — needed in Phase 3. **Do not paste it here or commit it.**
+- [ ] Add `**SUPABASE_URL`** and `**SUPABASE_SERVICE_ROLE_KEY**` to local `.env` and Render (Project Settings → API → Project URL + `service_role` secret). Required for receipt photo upload.
 
 ### 3. Create the Render service — **do now**
 
@@ -60,7 +61,7 @@ The `.gitignore` already excludes `node_modules/`, `.env`, and the KitchenOwl sp
   - `**DATABASE_URL`** — full Supabase Session pooler URI with the real password filled in (not the literal text `[YOUR-PASSWORD]`). See **Which password?** below.
   - `**APP_BASE_URL`** — your Render service URL (e.g. `https://bayit-shopping-app.onrender.com`). You may need to deploy once to get the URL, then set this and redeploy.
   - `**JWT_SECRET`** — Render can auto-generate this from `render.yaml`; no action needed unless prompted.
-  - `GEMINI_API_KEY`, `EMAIL_API_KEY`, `VAPID_*` — set when ready (several done locally/Render).
+  - `GEMINI_API_KEY`, `EMAIL_API_KEY`, `VAPID_`* — set when ready (several done locally/Render).
   - `SLACK_WEBHOOK_URL` — **leave unset** (Slack skipped; see item 6).
 - [x] Verify the deploy: visit `https://YOUR-APP.onrender.com/api/health` — should show `{"ok":true,"db":true,...}`.
 
@@ -141,7 +142,7 @@ npm run dev:web           # terminal 2 → http://localhost:5173
 
 ## What the AI does next
 
-**Phase 3:** Receipts + reconciliation — upload to Supabase storage, Gemini structured parse, auto-match to items, reconciliation chat, finalize + settlement engine. **No Slack.**
+**Phase 4:** Balances UI, Venmo deep links, Zelle copy, proof-of-payment upload, shopper confirm, reminder cron, auto-close, CSV export. **No Slack.**
 
 ## How to test Phase 1 locally
 
@@ -152,7 +153,7 @@ npm run dev:api                  # terminal 1 → :3001
 npm run dev:web                  # terminal 2 → :5173
 ```
 
-1. Open http://localhost:5173 → enter your email (Resend sandbox: must be your Resend account email).
+1. Open [http://localhost:5173](http://localhost:5173) → enter your email (Resend sandbox: must be your Resend account email).
 2. Copy the magic link from the **API terminal** (also emailed in prod).
 3. Complete profile → Home → **Start new run** / **Manage run** → **Open list for house**.
 4. Add items (communal/personal); try adding "eggs" twice to see the duplicate warning.
@@ -167,6 +168,18 @@ Use the Phase 1 setup above, then:
 4. **Shop view** — Items are grouped by store tab, then aisle section. Tap an item to advance `pending → in_cart → purchased`. Use **Report issue** for not-found / out-of-stock / etc.
 5. **Offline check-off** — Chrome DevTools → **Network** → **Offline**. Check off more items; you should see a queued-changes indicator. Toggle back online (or use **Application → Service Workers → Sync**) and confirm items sync.
 6. **Substitute flow** — On Shop, tap **Request substitute** on an item. On Home or List (same or second browser/profile as the requester), respond via the substitute badge/modal (pick an alternative, free text, or skip). Push notifications work when VAPID keys are set and permission is granted; otherwise poll the badge or refresh.
-7. **Finish** — **Done shopping** moves the run from `locked` toward reconciliation (Phase 3).
+7. **Finish** — **Done shopping** moves the run to `reconciling`.
 
-**Deploy:** push to GitHub; Render redeploys. Set `APP_BASE_URL` to your Render URL so magic links work in production.
+## How to test Phase 3 locally
+
+Use the Phase 1–2 setup above, then ensure `.env` has `GEMINI_API_KEY`, `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY` (see action item 2).
+
+1. Complete a shopping run through **Done shopping** (run state → `reconciling`).
+2. **Upload receipts** — Home → **Upload receipts** (`/receipts`). Photograph or pick a receipt image; Gemini parses lines and auto-matches high-confidence items (`≥ 0.85`).
+3. **Reconcile** — `/reconcile`: use the chat assistant to match/assign/skip lines, or resolve every line in the table (works with `GEMINI_API_KEY` unset for manual-only).
+4. **Finalize** — when unresolved count is zero, **Finalize run** creates `settlements` + `balances` rows and moves the run to `settling`.
+5. **Settlement math** — `npm test -w api` runs unit tests including the SDD Appendix B worked example.
+
+**No-AI fallback:** unset `GEMINI_API_KEY` locally; upload will fail but you can still test manual resolution if you insert receipt rows via SQL, or test the table/chat error path. For full upload testing, keep Gemini + Supabase configured.
+
+**Deploy:** push to GitHub; Render redeploys. Set `APP_BASE_URL` to your Render URL so magic links work in production. Add `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` on Render before testing receipt upload in prod.

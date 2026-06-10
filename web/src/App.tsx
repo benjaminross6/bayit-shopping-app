@@ -7,6 +7,8 @@ import Home from "./pages/Home";
 import ListPage from "./pages/ListPage";
 import RunAdmin from "./pages/RunAdmin";
 import ShopPage from "./pages/ShopPage";
+import ReceiptsPage from "./pages/ReceiptsPage";
+import ReconcilePage from "./pages/ReconcilePage";
 import Invite from "./pages/Invite";
 import { registerPushSubscription } from "./push/subscribe";
 
@@ -121,13 +123,26 @@ export default function App() {
     case "/shop":
       page = <ShopPage me={me} nav={nav} />;
       break;
+    case "/receipts":
+      page = <ReceiptsPage me={me} nav={nav} />;
+      break;
+    case "/reconcile":
+      page = <ReconcilePage me={me} nav={nav} />;
+      break;
     default:
       page = <Home me={me} nav={nav} />;
   }
 
-  return <Shell>{page}</Shell>;
+  const wide = path === "/reconcile";
+  return <Shell wide={wide}>{page}</Shell>;
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
-  return <main className="shell">{children}</main>;
+function Shell({
+  children,
+  wide,
+}: {
+  children: React.ReactNode;
+  wide?: boolean;
+}) {
+  return <main className={`shell${wide ? " shell-wide" : ""}`}>{children}</main>;
 }

@@ -127,6 +127,20 @@ export default function Home({
                   </button>
                 </>
               )}
+              {shopper && run.state === "reconciling" && (
+                <>
+                  <button onClick={() => nav("/receipts")}>Upload receipts</button>
+                  <button className="secondary" onClick={() => nav("/reconcile")}>
+                    Reconcile
+                  </button>
+                </>
+              )}
+              {!shopper && run.state === "reconciling" && (
+                <p className="muted small">Shopper is uploading and reconciling receipts.</p>
+              )}
+              {run.state === "settling" && (
+                <p className="muted small">Balances are being collected (Phase 4).</p>
+              )}
               {canManage && (
                 <button className="secondary" onClick={() => nav("/run")}>
                   Manage run

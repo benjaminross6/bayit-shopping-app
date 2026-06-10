@@ -183,6 +183,14 @@ export default function RunAdmin({
                 </button>
               </>
             )}
+            {shopper && run.state === "reconciling" && (
+              <>
+                <button onClick={() => nav("/receipts")}>Upload receipts</button>
+                <button className="secondary" onClick={() => nav("/reconcile")}>
+                  Reconcile
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

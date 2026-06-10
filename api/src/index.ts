@@ -2,6 +2,7 @@ import { env } from "./env.js";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 import fastifyCookie from "@fastify/cookie";
+import fastifyMultipart from "@fastify/multipart";
 import { sql } from "drizzle-orm";
 import { ZodError } from "zod";
 import { fileURLToPath } from "node:url";
@@ -17,10 +18,13 @@ import { runRoutes } from "./routes/runs.js";
 import { itemRoutes } from "./routes/items.js";
 import { pushRoutes } from "./routes/push.js";
 import { substituteRoutes } from "./routes/substitutes.js";
+import { receiptRoutes } from "./routes/receipts.js";
+import { reconcileRoutes } from "./routes/reconcile.js";
 
 const app = Fastify({ logger: true });
 
 await app.register(fastifyCookie, { secret: env.jwtSecret });
+await app.register(fastifyMultipart, { limits: { fileSize: 10 * 1024 * 1024 } });
 
 app.setErrorHandler((err, _req, reply) => {
   if (err instanceof ZodError) {
@@ -62,6 +66,8 @@ runRoutes(app);
 itemRoutes(app);
 pushRoutes(app);
 substituteRoutes(app);
+receiptRoutes(app);
+reconcileRoutes(app);
 
 // In production the Docker image serves the built PWA from the same process.
 const here = path.dirname(fileURLToPath(import.meta.url));

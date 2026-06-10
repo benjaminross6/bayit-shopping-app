@@ -303,5 +303,54 @@ button.small-btn { padding: 0.35rem 0.65rem; font-size: 0.85rem; }
 }
 
 .badge.state-locked { background: #e8eaf6; color: #283593; }
+.badge.state-settling { background: #fce4ec; color: #880e4f; }
+
+.shell-wide {
+  max-width: 960px;
+}
+
+.reconcile-layout { display: flex; flex-direction: column; gap: 0.75rem; }
+.reconcile-panes {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+@media (min-width: 720px) {
+  .reconcile-panes { grid-template-columns: 1fr 1.2fr; align-items: start; }
+}
+
+.reconcile-chat { min-height: 320px; }
+.chat-log {
+  flex: 1;
+  min-height: 180px;
+  max-height: 360px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: #f7faf7;
+  border-radius: 8px;
+}
+.chat-bubble {
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  max-width: 95%;
+  white-space: pre-wrap;
+}
+.chat-user { align-self: flex-end; background: var(--green); color: #fff; }
+.chat-model { align-self: flex-start; background: #fff; border: 1px solid var(--border); }
+
+.receipt-row {
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border);
+}
+.line-row {
+  padding: 0.65rem 0;
+  border-top: 1px solid var(--border);
+}
+.line-row.open { background: #fafbff; margin: 0 -0.5rem; padding: 0.65rem 0.5rem; border-radius: 8px; }
+.line-actions { margin-top: 0.35rem; }
 
 a { color: var(--green); }

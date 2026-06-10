@@ -3,8 +3,12 @@ import { and, asc, eq, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db.js";
 import {
+  balances,
+  houses,
   issueKind,
   listItems,
+  memberships,
+  settlements,
   shopperIssues,
   shoppingRuns,
   storeSection,
@@ -13,6 +17,10 @@ import {
 } from "../schema.js";
 import { requireMembership, requireRole, requireShopper } from "../lib/context.js";
 import { badRequest, conflict, notFound } from "../lib/errors.js";
+import { classifyRunLines } from "../lib/classify-lines.js";
+import { countUnresolvedForRun } from "../lib/receipt-resolution.js";
+import { computeSettlement } from "../lib/settlement.js";
+import { sendPushToUser } from "../lib/push.js";
 
 const SECTIONS = storeSection.enumValues;
 const ISSUE_KINDS = issueKind.enumValues;
@@ -218,5 +226,94 @@ export function runRoutes(app: FastifyInstance): void {
       })
       .returning();
     return { ok: true, issue };
+  });
+
+  app.post("/api/runs/:id/finalize", async (req) => {
+    const membership = requireMembership(req.membership);
+    const runId = z.string().uuid().parse((req.params as Record<string, string>).id);
+    const run = await getHouseRun(runId, membership.houseId);
+    requireShopper(run, req.authUser!, membership);
+
+    if (run.state !== "reconciling") {
+      throw conflict(`Cannot finalize run in state '${run.state}'`, "BAD_STATE");
+    }
+    if (!run.shopperId) throw badRequest("Run has no shopper assigned");
+
+    const unresolved = await countUnresolvedForRun(runId);
+    if (unresolved > 0) {
+      throw conflict(`${unresolved} receipt line(s) still unresolved`, "UNRESOLVED_LINES", {
+        unresolvedCount: unresolved,
+      });
+    }
+
+    const [house] = await db.select().from(houses).where(eq(houses.id, membership.houseId));
+    const activeMembers = await db
+      .select({ userId: memberships.userId })
+      .from(memberships)
+      .where(
+        and(
+          eq(memberships.houseId, membership.houseId),
+          eq(memberships.active, true),
+        ),
+      );
+
+    let splitIds = activeMembers.map((m) => m.userId);
+    if (house?.splitExcludesShopper) {
+      splitIds = splitIds.filter((id) => id !== run.shopperId);
+    }
+
+    const { lines, taxCents, receiptSubtotalCents } = await classifyRunLines(runId);
+    const result = computeSettlement({
+      lines,
+      taxCents,
+      receiptSubtotalCents,
+      shopperId: run.shopperId,
+      splitMemberIds: splitIds,
+    });
+
+    const [settlement] = await db
+      .insert(settlements)
+      .values({
+        runId,
+        shopperId: run.shopperId,
+        communalTotalCents: result.communalTotalCents,
+        splitMemberIds: result.splitMemberIds,
+      })
+      .returning();
+
+    const balanceRows = [];
+    for (const b of result.balances) {
+      const [row] = await db
+        .insert(balances)
+        .values({
+          settlementId: settlement.id,
+          debtorId: b.debtorId,
+          amountCents: b.amountCents,
+        })
+        .returning();
+      balanceRows.push(row);
+
+      const dollars = (b.amountCents / 100).toFixed(2);
+      void sendPushToUser(b.debtorId, {
+        kind: "balance_owed",
+        title: "Shopping balance",
+        body: `You owe $${dollars} for this run`,
+        url: "/",
+        dedupeKey: `balance:${settlement.id}:${b.debtorId}`,
+      });
+    }
+
+    const [updated] = await db
+      .update(shoppingRuns)
+      .set({ state: "settling" })
+      .where(eq(shoppingRuns.id, runId))
+      .returning();
+
+    return {
+      ok: true,
+      run: updated,
+      settlement,
+      balances: balanceRows,
+    };
   });
 }
