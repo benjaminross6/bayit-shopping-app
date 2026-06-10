@@ -1,0 +1,16 @@
+:root {
+  --green: #2e7d32;
+  --bg: #fafaf5;
+  --ink: #1d2520;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+}

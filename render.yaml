@@ -1,0 +1,25 @@
+# Render Blueprint — creates the web service on first deploy.
+# DATABASE_URL points at Supabase Postgres (created manually; see human_instructions.md).
+services:
+  - type: web
+    name: bayit-shopping-app
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: APP_BASE_URL
+        sync: false
+      - key: EMAIL_API_KEY
+        sync: false
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: SLACK_WEBHOOK_URL
+        sync: false
