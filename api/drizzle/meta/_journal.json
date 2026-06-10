@@ -8,6 +8,20 @@
       "when": 1781054393892,
       "tag": "0000_white_spyke",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781113341069,
+      "tag": "0001_magic_link_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781124131377,
+      "tag": "0002_great_luckman",
+      "breakpoints": true
     }
   ]
 }

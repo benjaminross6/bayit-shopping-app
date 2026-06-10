@@ -60,6 +60,18 @@ export const issueKind = pgEnum("issue_kind", [
   "other",
 ]);
 
+export const substituteRequestStatus = pgEnum("substitute_request_status", [
+  "pending",
+  "answered",
+  "skipped",
+]);
+
+export const substituteResponseKind = pgEnum("substitute_response_kind", [
+  "alternative",
+  "free_text",
+  "none",
+]);
+
 export const storeSection = pgEnum("store_section", [
   "produce",
   "dairy",
@@ -197,6 +209,36 @@ export const shopperIssues = pgTable("shopper_issues", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const substituteRequests = pgTable(
+  "substitute_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    itemId: uuid("item_id").notNull().references(() => listItems.id),
+    runId: uuid("run_id").notNull().references(() => shoppingRuns.id),
+    requesterId: uuid("requester_id").notNull().references(() => users.id),
+    status: substituteRequestStatus("status").notNull().default("pending"),
+    responseKind: substituteResponseKind("response_kind"),
+    responseText: text("response_text"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    answeredAt: timestamp("answered_at", { withTimezone: true }),
+  },
+  (t) => [index("substitute_requests_item").on(t.itemId)],
+);
+
+/** Idempotency ledger for offline shop ops (item_id + op + seq). */
+export const itemSyncOps = pgTable(
+  "item_sync_ops",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    itemId: uuid("item_id").notNull().references(() => listItems.id),
+    op: text("op").notNull(),
+    seq: integer("seq").notNull(),
+    clientId: text("client_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("item_sync_ops_dedupe").on(t.itemId, t.op, t.seq)],
+);
+
 // ============ Receipts & reconciliation ============
 
 export const receipts = pgTable("receipts", {
@@ -314,6 +356,15 @@ export const mealCooks = pgTable(
   },
   (t) => [primaryKey({ columns: [t.mealId, t.userId] })],
 );
+
+// ============ Auth ============
+
+export const magicLinkTokens = pgTable("magic_link_tokens", {
+  token: uuid("token").primaryKey().defaultRandom(),
+  email: text("email").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+});
 
 // ============ Notifications ============
 

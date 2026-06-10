@@ -30,12 +30,20 @@ cp .env.example .env
 # 4. Apply migrations
 npm run db:migrate
 
-# 5. Run API (terminal 1) and web (terminal 2)
+# 5. Run API (terminal 1) and web (terminal 2) — both must stay running
 npm run dev:api
 npm run dev:web
 ```
 
 Web dev server: http://localhost:5173 (proxies `/api` to the API on :3001).
+
+**Sign in locally:** enter your email on the sign-in page. In dev, the magic link appears on screen after submit (and in the `dev:api` terminal). Resend’s sandbox only delivers email to the address on your Resend account; use the on-screen link for other addresses.
+
+Run each setup command separately (don’t paste the whole block at once — shell comments like `#` will error in zsh).
+
+**If `dev:api` fails with an esbuild version mismatch:** from the repo root run `rm -rf node_modules && npm install`, then try again. The repo pins `tsx@4.19.4` to stay compatible with Vite’s `esbuild`.
+
+**If Vite shows `proxy error: ECONNREFUSED`:** the API is not running on :3001. Start `npm run dev:api` in a separate terminal and wait for `Server listening at http://127.0.0.1:3001`. If port 3001 is stuck, quit duplicate `dev:api` processes and try again.
 
 ## Database migrations
 

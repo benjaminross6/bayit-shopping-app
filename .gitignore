@@ -1,5 +1,6 @@
 node_modules/
 dist/
+web/dev-dist/
 .env
 *.local
 .DS_Store

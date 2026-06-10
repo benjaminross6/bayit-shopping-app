@@ -7,6 +7,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
       includeAssets: ["icon.svg"],
       manifest: {
         name: "Bayit Shopping App",
@@ -24,9 +27,11 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
-        // App shell precache; runtime caching strategies arrive in Phase 2
+      injectManifest: {
         globPatterns: ["**/*.{js,css,html,svg}"],
+      },
+      devOptions: {
+        enabled: true,
       },
     }),
   ],

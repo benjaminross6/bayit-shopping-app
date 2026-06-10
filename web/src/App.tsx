@@ -1,51 +1,133 @@
-import { useEffect, useState } from "react";
-
-type Health = { ok: boolean; db: boolean; version: string };
+import { useCallback, useEffect, useState } from "react";
+import { api, ApiFail, type Me } from "./api";
+import SignIn from "./pages/SignIn";
+import Verify from "./pages/Verify";
+import Profile from "./pages/Profile";
+import Home from "./pages/Home";
+import ListPage from "./pages/ListPage";
+import RunAdmin from "./pages/RunAdmin";
+import ShopPage from "./pages/ShopPage";
+import Invite from "./pages/Invite";
+import { registerPushSubscription } from "./push/subscribe";
 
 export default function App() {
-  const [health, setHealth] = useState<Health | null>(null);
-  const [error, setError] = useState(false);
+  const [path, setPath] = useState(window.location.pathname);
+  const [me, setMe] = useState<Me | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetch("/api/health")
-      .then((r) => r.json())
-      .then(setHealth)
-      .catch(() => setError(true));
+  const nav = useCallback((to: string) => {
+    window.history.pushState(null, "", to);
+    setPath(to);
   }, []);
 
-  return (
-    <main
-      style={{
-        maxWidth: 480,
-        margin: "0 auto",
-        padding: "4rem 1.5rem",
-        textAlign: "center",
-      }}
-    >
-      <img src="/icon.svg" alt="" width={72} height={72} />
-      <h1 style={{ marginBottom: "0.25rem" }}>Bayit Shopping App</h1>
-      <p style={{ color: "#5a6b5f", marginTop: 0 }}>
-        Shopping, receipts, and settlement for the Berkeley Bayit.
-      </p>
-      <div
-        style={{
-          display: "inline-block",
-          padding: "0.5rem 1rem",
-          borderRadius: 8,
-          background: "#fff",
-          border: "1px solid #dde5dd",
-          fontSize: "0.9rem",
-        }}
-      >
-        {error && <span>API unreachable</span>}
-        {!error && !health && <span>Checking API…</span>}
-        {health && (
-          <span>
-            API {health.ok ? "up" : "down"} · DB {health.db ? "connected" : "down"} · v
-            {health.version}
-          </span>
-        )}
-      </div>
-    </main>
-  );
+  const loadMe = useCallback(() => {
+    setLoading(true);
+    api<Me>("/api/me")
+      .then((m) => {
+        setMe(m);
+        void registerPushSubscription();
+      })
+      .catch((err) => {
+        if (err instanceof ApiFail && err.status === 401) setMe(null);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const onPop = () => setPath(window.location.pathname);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  useEffect(() => {
+    const onMsg = (event: MessageEvent) => {
+      if (event.data?.type === "NAVIGATE" && typeof event.data.url === "string") {
+        nav(event.data.url);
+      }
+    };
+    navigator.serviceWorker?.addEventListener("message", onMsg);
+    return () => navigator.serviceWorker?.removeEventListener("message", onMsg);
+  }, [nav]);
+
+  useEffect(() => {
+    if (path !== "/auth/verify" && path !== "/invite") loadMe();
+    else setLoading(false);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (path === "/invite") {
+    return (
+      <Shell>
+        <Invite
+          onDone={() => {
+            setPath("/");
+            loadMe();
+          }}
+        />
+      </Shell>
+    );
+  }
+
+  if (path === "/auth/verify") {
+    return (
+      <Shell>
+        <Verify
+          onDone={() => {
+            setPath("/");
+            loadMe();
+          }}
+        />
+      </Shell>
+    );
+  }
+
+  if (loading) {
+    return (
+      <Shell>
+        <p className="muted center">Loading…</p>
+      </Shell>
+    );
+  }
+
+  if (!me) {
+    return (
+      <Shell>
+        <SignIn />
+      </Shell>
+    );
+  }
+
+  if (!me.profileComplete || path === "/profile") {
+    return (
+      <Shell>
+        <Profile
+          me={me}
+          onSaved={() => {
+            nav("/");
+            loadMe();
+          }}
+        />
+      </Shell>
+    );
+  }
+
+  let page: React.ReactNode;
+  switch (path) {
+    case "/list":
+      page = <ListPage me={me} nav={nav} />;
+      break;
+    case "/run":
+      page = <RunAdmin me={me} nav={nav} />;
+      break;
+    case "/shop":
+      page = <ShopPage me={me} nav={nav} />;
+      break;
+    default:
+      page = <Home me={me} nav={nav} />;
+  }
+
+  return <Shell>{page}</Shell>;
+}
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return <main className="shell">{children}</main>;
 }
